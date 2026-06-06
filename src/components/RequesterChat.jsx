@@ -8,38 +8,49 @@ export default function RequesterChat({ messages, setMessages, setParsedData, se
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
 
-  const handleSendMessage = (e) => {
+  const handleSendMessage = async (e) => {
     e.preventDefault();
     if (!inputText.trim()) return;
 
     const newMsg = { id: Date.now(), text: inputText, sender: "user" };
     setMessages((prev) => [...prev, newMsg]);
-    
-    // Simulate AI parsing
-    setTimeout(() => {
-      setParsedData({
-        bloodGroup: "O+",
-        count: "5",
-        location: "Gulshan",
-        hospital: "Indus Hospital",
-        urgency: "High"
+    setInputText("");
+
+    setMessages((prev) => [...prev, { 
+      id: Date.now() + 1, 
+      text: "Analyzing request and finding the best donors in the database...", 
+      sender: "bot" 
+    }]);
+
+    try {
+      const response = await fetch('/api/request', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ text: newMsg.text })
       });
-      setWave(1);
-      setDonors([
-        { id: 101, name: "Ali Raza", status: "Pending", distance: "2 km", lastDonation: "4 months ago" },
-        { id: 102, name: "Sara Ahmed", status: "Pending", distance: "3 km", lastDonation: "6 months ago" },
-        { id: 103, name: "Omar Khan", status: "Pending", distance: "4 km", lastDonation: "5 months ago" },
-        { id: 104, name: "Fatima Noor", status: "Pending", distance: "5 km", lastDonation: "3 months ago" },
-        { id: 105, name: "Bilal Haider", status: "Pending", distance: "5.5 km", lastDonation: "7 months ago" },
-      ]);
+
+      if (!response.ok) throw new Error("Backend error");
+
+      const data = await response.json();
+      
+      setParsedData(data.parsedData);
+      setWave(data.wave);
+      setDonors(data.donors);
+
       setMessages((prev) => [...prev, { 
-        id: Date.now() + 1, 
-        text: "Got it. Extracting details and contacting the first wave of high-ranked donors near Indus Hospital...", 
+        id: Date.now() + 2, 
+        text: `Got it. Extracted details and contacting Wave ${data.wave} (${data.donors.length} high-ranked donors) near ${data.parsedData.hospital}...`, 
         sender: "bot" 
       }]);
-    }, 1000);
 
-    setInputText("");
+    } catch (error) {
+      console.error(error);
+      setMessages((prev) => [...prev, { 
+        id: Date.now() + 2, 
+        text: "Error connecting to the Al-Khidmat backend. Is the Node.js server running?", 
+        sender: "bot" 
+      }]);
+    }
   };
 
   return (
